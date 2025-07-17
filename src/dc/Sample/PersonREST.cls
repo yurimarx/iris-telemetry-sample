@@ -41,7 +41,6 @@ ClassMethod GetInfo() As %Status
 ClassMethod GetAllPersons() As %Status
 {
 
-    hang 7
     #dim tSC As %Status = $$$OK
 
     do ##class(dc.Sample.REST.TelemetryUtil).SetTracerProvider("Get.All.Persons", "1.0")
