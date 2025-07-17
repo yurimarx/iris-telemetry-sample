@@ -1,0 +1,40 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http: 
+        endpoint: "0.0.0.0:4318"
+
+exporters:
+  otlp:
+    endpoint: jaeger:4317 # O nome do serviço 'jaeger' do docker-compose para o Collector gRPC
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: "0.0.0.0:9464"
+  debug: {}
+
+
+processors:
+  batch: # Processador para agrupar traces em batches
+    send_batch_size: 100
+    timeout: 10s
+
+
+connectors:
+  spanmetrics: # O conector SpanMetrics
+    
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch] # Traces são processados para gerar métricas
+      exporters: [otlp, spanmetrics]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      exporters: [debug]

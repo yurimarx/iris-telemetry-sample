@@ -41,22 +41,63 @@ ClassMethod GetInfo() As %Status
 ClassMethod GetAllPersons() As %Status
 {
 
+    hang 7
     #dim tSC As %Status = $$$OK
 
+    do ##class(dc.Sample.REST.TelemetryUtil).SetTracerProvider("Get.All.Persons", "1.0")
+    set tracerProv = ##class(dc.Sample.REST.TelemetryUtil).GetTracerProvider()
+    set tracer = tracerProv.GetTracer("Get.All.Persons", "1.0")
+
+    set rootAttr("GetAllPersons") = 1
+    set rootSpan = tracer.StartSpan("GetAllPersons", , "Server", .rootAttr)
+    set rootScope = tracer.SetActiveSpan(rootSpan)
+
+    set childSpan1 = tracer.StartSpan("Query.All.Persons")
+    set child1Scope = tracer.SetActiveSpan(childSpan1)
     Set rset = ##class(dc.Sample.Person).ExtentFunc()
+    do childSpan1.SetStatus("Ok")
+    do childSpan1.End()
+    kill childSpan1
+
 
     Set %response.ContentType = ..#CONTENTTYPEJSON
     Write "["
     if rset.%Next() {
-        Set person = ##class(dc.Sample.Person).%OpenId(rset.ID)    
+        set childSpan2 = tracer.StartSpan("Get.PersonByID")
+        set child2Scope = tracer.SetActiveSpan(childSpan2)
+        Set person = ##class(dc.Sample.Person).%OpenId(rset.ID)
+        
+        if person.DOB '= ""  {
+            Set person.Age = person.CalculateAge(person.DOB)
+            Set person.ZodiacSign = person.CalculateZodiacSign(person.DOB)
+        }   
         Do person.%JSONExport()
+        do childSpan2.SetStatus("Ok")
+        do childSpan2.End()
+        kill childSpan2
+
     }
     While rset.%Next() {   
         Write ","
-        Set person = ##class(dc.Sample.Person).%OpenId(rset.ID)    
+        set childSpan2 = tracer.StartSpan("Get.PersonByID")
+        set child2Scope = tracer.SetActiveSpan(childSpan2)
+        Set person = ##class(dc.Sample.Person).%OpenId(rset.ID)
+        if person.DOB '= ""  {
+            Set person.Age = person.CalculateAge(person.DOB)
+            Set person.ZodiacSign = person.CalculateZodiacSign(person.DOB)
+        }    
         Do person.%JSONExport()
+        do childSpan2.SetStatus("Ok")
+        do childSpan2.End()
+        kill childSpan2
+
     }
     Write "]"
+    
+    do rootSpan.SetStatus("Ok")
+    do rootSpan.End()
+    kill rootScope
+
     Quit tSC
 }
 
@@ -136,7 +177,7 @@ ClassMethod DeletePerson(id As %Integer) As %Status
     Quit tSC
 }
 
-ClassMethod CreateRandomPersons(amount As %Integer) as %Status
+ClassMethod CreateRandomPersons(amount As %Integer) As %Status
 {
 #dim tSC As %Status = $$$OK
     Set %response.ContentType = ..#CONTENTTYPEJSON

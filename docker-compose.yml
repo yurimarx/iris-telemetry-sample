@@ -1,4 +1,4 @@
-version: '3.6'
+
 services:
   iris:
     build:
@@ -11,3 +11,46 @@ services:
       - 53773
     volumes:
       - ./:/home/irisowner/dev
+    environment:
+    - ISC_DATA_DIRECTORY=/home/irisowner/dev/durable
+    - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    
+  # --- 2. OpenTelemetry Collector ---
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest # Versão mais recente com o spanmetrics
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yml # Monta o arquivo de configuração
+    ports:
+      - "4317:4317" # Porta OTLP gRPC (para a aplicação enviar traces)
+      - "4318:4318" # Porta OTLP HTTP
+      - "9464:9464" # Metrics
+    depends_on:
+      - iris
+      - jaeger # Inicia o Jaeger antes do Collector para que ele possa enviar traces
+
+  # --- 3. Prometheus ---
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml # Monta o arquivo de configuração
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-remote-write-receiver"]
+    ports:
+      - "9090:9090" # Porta da UI do Prometheus
+
+  # --- 4. Jaeger All-in-One ---
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14269:14269" # Jaeger Metrics
+      - "14250:14250" # Jaeger Collector gRPC (para o OTel Collector enviar traces)
+    environment:
+      # Configura o Jaeger Query para buscar métricas do Prometheus para o SPM
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_SERVER_URL=http://prometheus:9090 # O nome do serviço 'prometheus' do docker-compose
+      - MONITOR_MENU_ENABLED=true # Habilita a aba "Monitor" na UI
+      - PROMETHEUS_QUERY_NORMALIZE_CALLS=true # Importante para interpretar métricas do spanmetrics
+      - PROMETHEUS_QUERY_NORMALIZE_DURATION=true # Importante para interpretar métricas do spanmetrics
+      - PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR=true
+      - COLLECTOR_OTLP_ENABLED=true

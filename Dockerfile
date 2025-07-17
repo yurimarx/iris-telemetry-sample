@@ -1,6 +1,9 @@
-ARG IMAGE=intersystemsdc/iris-community:2020.3.0.221.0-zpm
 ARG IMAGE=intersystemsdc/iris-community
 FROM $IMAGE
+
+COPY ./merge.cpf /tmp/merge.cpf
+
+ENV ISC_CPF_MERGE_FILE=/tmp/merge.cpf
 
 WORKDIR /home/irisowner/dev
 

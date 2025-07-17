@@ -1,0 +1,5 @@
+[Monitor]
+OTELMetrics=1
+OTELInterval=10
+OTELLogs=1
+OTELLogLevel=WARN
